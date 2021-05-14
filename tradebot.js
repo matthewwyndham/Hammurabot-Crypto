@@ -3,7 +3,7 @@ const d3 = require('d3-dsv');
 const fs = require('fs');
 const n = require('nonce')(); // use n() to generate better nonces than the kraken client
 
-const [key, secret] = require('./tokens.js');
+const [key, secret] = require('./tokens.js'); // module.exports = [ 'your-kraken-api-key', 'your-kraken-api-secret' ];
 const kraken = new KrakenClient(key, secret);
 
 let MAX_RATE_LIMIT = 20;
