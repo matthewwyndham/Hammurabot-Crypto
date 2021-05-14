@@ -1,0 +1,16 @@
+{
+  "name": "krakenpro",
+  "version": "1.0.0",
+  "description": "",
+  "main": "tradebot.js",
+  "scripts": {
+    "start": "node tradebot.js"
+  },
+  "author": "grandexar",
+  "license": "MIT",
+  "dependencies": {
+    "d3-dsv": "^2.0.0",
+    "kraken-api": "^1.0.1",
+    "nonce": "^1.0.4"
+  }
+}
