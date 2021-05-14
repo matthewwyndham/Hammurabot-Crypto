@@ -143,7 +143,7 @@ async function volatility(_assetpair, _say=true) {
         // that trade with usd and don't have a dot in the name
         .filter( (e)=>{ return e.name.includes('USD') && !e.name.includes('USDT') && !e.name.includes('USDC') && !e.name.includes('.') && e.name[0] != 'Z' })
 
-    // this is basically mean reversion
+    // STRATEGY: this is basically mean reversion
     let taps_vol = await Promise.all(taps.map( value=>{ return volatility(value, false) }))
 
     // say( taps_vol.map(v=>{ return v.name+' ('+v.percentRecent+'% | '+v.percentDaily+'%) - Min: '+v.min }) )

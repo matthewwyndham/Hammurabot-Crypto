@@ -1,12 +1,12 @@
 {
-  "name": "krakenpro",
+  "name": "Hammurabot-Crypto",
   "version": "1.0.0",
   "description": "",
   "main": "tradebot.js",
   "scripts": {
     "start": "node tradebot.js"
   },
-  "author": "grandexar",
+  "author": "Matt Wyndham",
   "license": "MIT",
   "dependencies": {
     "d3-dsv": "^2.0.0",
