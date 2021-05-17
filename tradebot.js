@@ -88,7 +88,7 @@ async function volatility(_assetpair, _say=true) {
             try {
                 if (parseFloat(r[0]) > high) { high = parseFloat(r[0]) }
                 if (parseFloat(r[0]) < low) { low = parseFloat(r[0]) }
-                normalVolumeAVG_sum += parseFloat(r[1]) / parseFloat(r[0])
+                normalVolumeAVG_sum += parseFloat(r[1]) / (parseFloat(r[0]) * 100)
                 normalVolumeAVG_count += 1
             } catch (error) {
                 say(error)
