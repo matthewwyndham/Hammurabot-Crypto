@@ -17,11 +17,12 @@ let K_SLOWMODE = 0;
 
 // cleaner kraken.api calls
 async function k(_method, data={}) {
-    // get back a little more than one point per api call, biggest call is 2 points. Refills at 0.5 points per second, so we want to get 2 points back
+    // get back a little more than one point per api call, biggest call is 2 points. 
+    // Refills at 0.5 points per second, so we want to get 3 points back just in case our api call is worth 2 points. We want to get ahead of the curve
     if (K_SLOWMODE > 0) { 
-        await new Promise(resolve => setTimeout(resolve, K_DECAY * 2 )); 
-        K_SLOWMODE -= 2; 
-        console.log('KRAKEN: Slowmode disabled')
+        await new Promise(resolve => setTimeout(resolve, K_DECAY * 3 )); 
+        K_SLOWMODE -= 1; // kept triggering so I set this to slow it down longer
+        if (K_SLOWMODE <= 0) { console.log('KRAKEN: Slowmode disabled') }
     }
 
     try {
@@ -58,7 +59,6 @@ async function k(_method, data={}) {
 
             } catch (error) {
                 console.log( error );
-                
             }
         }
 
@@ -192,6 +192,8 @@ function nnp(_amount) {
 
     // on init
     // get a month worth of data
+    K_SLOWMODE = Number.MAX_SAFE_INTEGER; // this is gonna take a while so we want slowmode all the time
+
     let doge = 'XDGUSD'
     let week_ago = (new Date().setDate((new Date()).getDate()-7))
     let week_data = (await k('Trades', { pair: doge, since: week_ago }))[doge]
@@ -201,21 +203,16 @@ function nnp(_amount) {
     console.log('now: '+now);
     let latest_time = week_data[week_data.length-1][2]
 
-    let HARD_LIMIT = 50
     do {
-        // if (next_thousand[next_thousand.length-1][2] == latest_time) { break; }
-        
         next_thousand = (await k('Trades', { pair: doge, since: latest_time }))[doge]
         latest_time = next_thousand[next_thousand.length-1][2]
-        
+
+        // kraken includes the row that you pass in the "since" time for, so there will be duplicate rows every thousand unless we pop()
         week_data = week_data.concat(next_thousand)
         
         say({'count': week_data.length, 'latest': latest_time})
-        
-        // await new Promise(resolve => setTimeout(resolve, 4000));
-        
-        HARD_LIMIT -= 1
-    } while (parseFloat(latest_time) < parseFloat(now) && HARD_LIMIT > 0);
+
+    } while ( parseFloat(latest_time) < parseFloat(now) );
 
     // a future date will return [] ==> say( await k('Trades', { pair: doge, since: 1621295251 })) // returns []
 
