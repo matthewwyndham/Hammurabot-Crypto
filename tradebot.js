@@ -97,7 +97,9 @@ async function volatility(_assetpair, _say=true) {
 
     let now = res[_assetpair][res[_assetpair].length-2][0]; // get latest trade price
     let percentRecent = ((100*(now-low))/(high-low)).toFixed(2);
+    percentRecent < 1 ? percentRecent = 1 : '' ;
     let percentDaily = ((100*(now-low24))/(high24-low24)).toFixed(2)
+    percentDaily < 1 ? percentDaily = 1 : '' ;
  
     if (_say) {
         say([
@@ -151,6 +153,7 @@ async function volatility(_assetpair, _say=true) {
             && !e.name.includes('.') 
             && e.name[0] != 'Z'
             && !e.name.includes('MKR') // mkr was added recently and started at 10000, but is trading at much less
+            && !e.name == 'AUDUSD' // australian dollars didn't have the Z in front of it
             
         })
 
