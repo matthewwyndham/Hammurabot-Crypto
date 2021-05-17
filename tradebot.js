@@ -4,6 +4,7 @@ const fs = require('fs');
 const n = require('nonce')(); // use n() to generate better nonces than the kraken client
 
 const [key, secret] = require('./tokens.js'); // module.exports = [ 'your-kraken-api-key', 'your-kraken-api-secret' ];
+const { parse } = require('path');
 const kraken = new KrakenClient(key, secret);
 
 let MAX_RATE_LIMIT = 20;
@@ -78,12 +79,17 @@ async function volatility(_assetpair, _say=true) {
     res = await k('Trades', { pair: _assetpair })
     let high = 0;
     let low = Infinity;
-    // say(res)
+
+    let normalVolumeAVG_sum = 0;
+    let normalVolumeAVG_count = 0;
+
     if (res[_assetpair]) {
         for (let r of res[_assetpair]) {
             try {
                 if (parseFloat(r[0]) > high) { high = parseFloat(r[0]) }
                 if (parseFloat(r[0]) < low) { low = parseFloat(r[0]) }
+                normalVolumeAVG_sum += parseFloat(r[1]) / parseFloat(r[0])
+                normalVolumeAVG_count += 1
             } catch (error) {
                 say(error)
                 say(r)
@@ -92,14 +98,17 @@ async function volatility(_assetpair, _say=true) {
         }
     }
 
+    if (normalVolumeAVG_count < 1) { normalVolumeAVG_count = 1 }
+    let normalVolumeAVG = normalVolumeAVG_sum / normalVolumeAVG_count
+
     // errors with new assets
     if (res[_assetpair].length < 1) { return { name: _assetpair, potential:0, profit:0, profit24:0, percentRecent:0, percentDaily:0, latest:0, high:0, high24:0, low:0, low24:0, min:0, } }
 
     let now = res[_assetpair][res[_assetpair].length-2][0]; // get latest trade price
     let percentRecent = ((100*(now-low))/(high-low)).toFixed(2);
-    percentRecent < 1 ? percentRecent = 1 : '' ;
+    if (percentRecent < 0.01) { percentRecent = 0.01 }
     let percentDaily = ((100*(now-low24))/(high24-low24)).toFixed(2)
-    percentDaily < 1 ? percentDaily = 1 : '' ;
+    if (percentDaily < 0.01) { percentDaily = 0.01 }
  
     if (_say) {
         say([
@@ -118,6 +127,7 @@ async function volatility(_assetpair, _say=true) {
 
     return {
         name: _assetpair,
+        volume: normalVolumeAVG,
         potential: potential,
         profit: profit,
         profit24: profit24,
@@ -132,6 +142,17 @@ async function volatility(_assetpair, _say=true) {
     }
 }
 
+// ninety-nine-percent
+// easily calculate approximately 100% of tradeable assets with enough to cover fees
+// considering worst case fee is 0.26% as a taker
+function nnp(_amount) { 
+    if (typeof(_amount)=="string") {
+        _amount = _amount.replace(/,/g, '');
+    }
+    _amount = ( isNaN(parseFloat(_amount)) ? 0 : parseFloat(_amount) )
+    return _amount * 0.997; 
+}
+
 // Answers at: https://blockgeeks.com/guides/6-of-the-best-crypto-trading-bots-strategies-updated-list/
 // run the show
 (async ()=>{
@@ -140,21 +161,28 @@ async function volatility(_assetpair, _say=true) {
     say('==============================================================');
     say('');
 
+    // LOOP
+
+    // CHECK IF WE CAN TRADE (check if we have fiat currency)
+    // CHECK FOR A POTENTIALLY GOOD TRADE
+    // BUY CURRENCY AND MAKE SELL ORDER
+    // SLEEP UNTIL WE HAVE SOLD AND CAN TRADE AGAIN
+
     // GET ALL TRADEABLE ASSET PAIRS
     let taps_raw = await k('AssetPairs');
     let taps_values = Object.values(taps_raw);
     let taps = Object.keys(taps_raw)
         .map( (value, index)=>{ return {name: value, min: taps_values[index].ordermin} })
-        // that trade with usd and don't have a dot in the name
         .filter( (e)=>{ 
-            return e.name.includes('USD')
+            // BTC has 20 less markets than USD on kraken (atm) but is the next best candidate
+            return e.name.includes('USD') // real us dollar has the most tradeability (of any stablecoin, on kraken)
             && !e.name.includes('USDT')
             && !e.name.includes('USDC')
-            && !e.name.includes('.') 
-            && e.name[0] != 'Z'
+            && !e.name.includes('DAI')
+            && e.name[0] != 'Z' // ignore fiat currencies
+            && !e.name.includes('AUDUSD') // australian dollars didn't have the Z in front of it
+            && !e.name.includes('.') // ignore staked currency (i think)
             && !e.name.includes('MKR') // mkr was added recently and started at 10000, but is trading at much less
-            && !e.name == 'AUDUSD' // australian dollars didn't have the Z in front of it
-            
         })
 
     // STRATEGY: this is basically mean reversion
