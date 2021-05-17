@@ -214,10 +214,13 @@ function nnp(_amount) {
 
     } while ( parseFloat(latest_time) < parseFloat(now) );
 
-    // a future date will return [] ==> say( await k('Trades', { pair: doge, since: 1621295251 })) // returns []
-
     fs.writeFileSync( './doge_week.csv', d3.csvFormat(week_data) )
     say( 'updated doge_week.csv with '+week_data.length+' lines!')
+
+    // TODO: load the data, add new stuff, naieve bayes, try to predict future prices
+
+
+
 
     return; 
     // LOTS OF DIFFERENT ASSETS STRATEGY
