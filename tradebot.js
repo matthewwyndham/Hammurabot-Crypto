@@ -92,6 +92,9 @@ async function volatility(_assetpair, _say=true) {
         }
     }
 
+    // errors with new assets
+    if (res[_assetpair].length < 1) { return { name: _assetpair, potential:0, profit:0, profit24:0, percentRecent:0, percentDaily:0, latest:0, high:0, high24:0, low:0, low24:0, min:0, } }
+
     let now = res[_assetpair][res[_assetpair].length-2][0]; // get latest trade price
     let percentRecent = ((100*(now-low))/(high-low)).toFixed(2);
     let percentDaily = ((100*(now-low24))/(high24-low24)).toFixed(2)
@@ -141,15 +144,22 @@ async function volatility(_assetpair, _say=true) {
     let taps = Object.keys(taps_raw)
         .map( (value, index)=>{ return {name: value, min: taps_values[index].ordermin} })
         // that trade with usd and don't have a dot in the name
-        .filter( (e)=>{ return e.name.includes('USD') && !e.name.includes('USDT') && !e.name.includes('USDC') && !e.name.includes('.') && e.name[0] != 'Z' })
+        .filter( (e)=>{ 
+            return e.name.includes('USD')
+            && !e.name.includes('USDT')
+            && !e.name.includes('USDC')
+            && !e.name.includes('.') 
+            && e.name[0] != 'Z'
+            && !e.name.includes('MKR') // mkr was added recently and started at 10000, but is trading at much less
+            
+        })
 
     // STRATEGY: this is basically mean reversion
     let taps_vol = await Promise.all(taps.map( value=>{ return volatility(value, false) }))
 
-    // say( taps_vol.map(v=>{ return v.name+' ('+v.percentRecent+'% | '+v.percentDaily+'%) - Min: '+v.min }) )
-    say( taps_vol )
-
+    // export as csv so we can view the 
     fs.writeFileSync( './cryptos.csv', d3.csvFormat(taps_vol) )
+    say('csv created/updated!')
     
     return '';
 
