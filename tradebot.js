@@ -4,12 +4,11 @@ const fs = require('fs');
 const n = require('nonce')(); // use n() to generate better nonces than the kraken client
 
 const [key, secret] = require('./tokens.js'); // module.exports = [ 'your-kraken-api-key', 'your-kraken-api-secret' ];
-const { parse } = require('path');
 const kraken = new KrakenClient(key, secret);
 
-let MAX_RATE_LIMIT = 20;
-let DECAY = -0.5; // per second
-let CURRENT_RATE = 0;
+let K_MAX_RATE_LIMIT = 20;
+let K_DECAY = (1000/0.5)*1.02; // 1/2 per second, so multiply this by any integer to get that number of points back, with a little buffer
+let K_SLOWMODE = 0;
 
 // const methods = {
 // 	public  : [ 'Time', 'Assets', 'AssetPairs', 'Ticker', 'Depth', 'Trades', 'Spread', 'OHLC' ],
@@ -18,18 +17,13 @@ let CURRENT_RATE = 0;
 
 // cleaner kraken.api calls
 async function k(_method, data={}) {
-    // if (CURRENT_RATE >= MAX_RATE_LIMIT-1) {
-    //     // wait long enough to get 5 points back
-    //     await new Promise(resolve=>setTimeout(resolve, (5*1000)/(-DECAY)))
-    //     CURRENT_RATE -= 5;
-    // }
+    // get back a little more than one point per api call, biggest call is 2 points. Refills at 0.5 points per second, so we want to get 2 points back
+    if (K_SLOWMODE > 0) { await new Promise(resolve => setTimeout(resolve, K_DECAY * 2 )); K_SLOWMODE -= 2; }
 
     try {
 
         data.nonce = n(); // default nonce isn't as good
         let res = await kraken.api(_method, data);
-
-        // CURRENT_RATE += 1;
 
         if (res.error == '') {
             return res.result;
@@ -38,6 +32,33 @@ async function k(_method, data={}) {
         }
 
     } catch (error) {
+
+        if (String(error).includes('API:Rate limit exceeded')) {
+            // check for api rate limit exceeded
+            K_SLOWMODE = K_MAX_RATE_LIMIT
+            console.log( 'API:Rate limit exceeded' )
+            console.log( 'waiting for api rate limit refill, slowmode enabled' )
+            await new Promise(resolve => setTimeout(resolve, K_DECAY * 4 ));
+            K_SLOWMODE -= 4;
+            console.log( 'retrying...' )
+
+            try {
+                
+                data.nonce = n(); // default nonce isn't as good
+                let res = await kraken.api(_method, data);
+
+                if (res.error == '') {
+                    return res.result;
+                } else {
+                    throw res.error;
+                }
+
+            } catch (error) {
+                console.log( error );
+                
+            }
+        }
+
         console.log( error );
     }
 }
@@ -77,6 +98,9 @@ async function volatility(_assetpair, _say=true) {
     // say(res);
 
     res = await k('Trades', { pair: _assetpair })
+
+    fs.writeFileSync( './trades/trades-'+_assetpair+'.csv', d3.csvFormat(res[_assetpair]) )
+
     let high = 0;
     let low = Infinity;
 
@@ -161,12 +185,50 @@ function nnp(_amount) {
     say('==============================================================');
     say('');
 
+    // DOGECOIN STRATEGY: utilize ML, predict changes in price, PROFIT
+
+    // on init
+    // get a month worth of data
+    let doge = 'XDGUSD'
+    let week_ago = (new Date().setDate((new Date()).getDate()-7))
+    let week_data = (await k('Trades', { pair: doge, since: week_ago }))[doge]
+    let next_thousand = []
+
+    let now = Date.now() / 1000;
+    console.log('now: '+now);
+    let latest_time = week_data[week_data.length-1][2]
+
+    let HARD_LIMIT = 50
+    do {
+        // if (next_thousand[next_thousand.length-1][2] == latest_time) { break; }
+        
+        next_thousand = (await k('Trades', { pair: doge, since: latest_time }))[doge]
+        latest_time = next_thousand[next_thousand.length-1][2]
+        
+        week_data = week_data.concat(next_thousand)
+        
+        say({'count': week_data.length, 'latest': latest_time})
+        
+        // await new Promise(resolve => setTimeout(resolve, 4000));
+        
+        HARD_LIMIT -= 1
+    } while (parseFloat(latest_time) < parseFloat(now) && HARD_LIMIT > 0);
+
+    // a future date will return [] ==> say( await k('Trades', { pair: doge, since: 1621295251 })) // returns []
+
+    fs.writeFileSync( './doge_week.csv', d3.csvFormat(week_data) )
+    say( 'updated doge_week.csv with '+week_data.length+' lines!')
+
+    return; 
+    // LOTS OF DIFFERENT ASSETS STRATEGY
+
     // LOOP
 
     // CHECK IF WE CAN TRADE (check if we have fiat currency)
     // CHECK FOR A POTENTIALLY GOOD TRADE
     // BUY CURRENCY AND MAKE SELL ORDER
     // SLEEP UNTIL WE HAVE SOLD AND CAN TRADE AGAIN
+
 
     // GET ALL TRADEABLE ASSET PAIRS
     let taps_raw = await k('AssetPairs');
