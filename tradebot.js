@@ -18,7 +18,11 @@ let K_SLOWMODE = 0;
 // cleaner kraken.api calls
 async function k(_method, data={}) {
     // get back a little more than one point per api call, biggest call is 2 points. Refills at 0.5 points per second, so we want to get 2 points back
-    if (K_SLOWMODE > 0) { await new Promise(resolve => setTimeout(resolve, K_DECAY * 2 )); K_SLOWMODE -= 2; }
+    if (K_SLOWMODE > 0) { 
+        await new Promise(resolve => setTimeout(resolve, K_DECAY * 2 )); 
+        K_SLOWMODE -= 2; 
+        console.log('KRAKEN: Slowmode disabled')
+    }
 
     try {
 
@@ -36,11 +40,10 @@ async function k(_method, data={}) {
         if (String(error).includes('API:Rate limit exceeded')) {
             // check for api rate limit exceeded
             K_SLOWMODE = K_MAX_RATE_LIMIT
-            console.log( 'API:Rate limit exceeded' )
-            console.log( 'waiting for api rate limit refill, slowmode enabled' )
+            console.log( 'KRAKEN: API:Rate limit exceeded' )
+            console.log( 'KRAKEN: waiting 8 sec. for slight api rate limit refill, slowmode enabled' )
             await new Promise(resolve => setTimeout(resolve, K_DECAY * 4 ));
-            K_SLOWMODE -= 4;
-            console.log( 'retrying...' )
+            console.log( 'KRAKEN: retrying...' )
 
             try {
                 
